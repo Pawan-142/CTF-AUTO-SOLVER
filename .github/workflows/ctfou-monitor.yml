@@ -1,0 +1,49 @@
+name: CTFOU 10-minute Challenge Monitor
+
+on:
+  schedule:
+    # Same 10-minute interval, offset from busy top-of-hour GitHub Actions queues.
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Needed only to persist NONSECRET challenge IDs and status.
+
+concurrency:
+  group: ctfou-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Check CTFOU and solve new challenges
+        env:
+          CTFOU_ACCESS_TOKEN: ${{ secrets.CTFOU_ACCESS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: llama-3.3-70b-versatile
+          FLAG_PREFIXES: THMH
+          SOLVE_EXISTING_ON_FIRST_RUN: 'false'
+          MAX_SOLVES_PER_RUN: '3'
+          RETRY_UNSOLVED_HOURS: '6'
+        run: python -m ctfou
+      - name: Save monitor state (IDs only; no flags or tokens)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update CTFOU seen challenge IDs [skip ci]"
+            git push
+          fi

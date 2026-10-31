@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from .api import CTFdClient
+from .api import ApiError, CTFdClient
 from .monitor import load_state, run_once, save_state
 from .notify import TelegramNotifier
 
@@ -30,6 +30,10 @@ def main() -> int:
         save_state(state_path, new_state)
         print("Monitor completed: %d tracked challenges" % len(state["challenges"]))
         return 0
+    except ApiError as exc:
+        print(f"CTFOU API failed: {exc}")
+        print("Check CTFOU_ACCESS_TOKEN in repository Actions secrets and the site's API availability.")
+        return 1
     except Exception as exc:
         print(f"Monitor failed ({type(exc).__name__}). Check API access and secrets.")
         return 1
